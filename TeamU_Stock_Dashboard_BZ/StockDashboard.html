@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股海無涯回頭是岸｜TeamU Project</title>
+  <meta name="description" content="TeamU Project 股票儀表板" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="glow glow-a"></div>
+  <div class="glow glow-b"></div>
+
+  <main class="app-shell">
+
+    <header class="hero glass-panel">
+      <div class="hero-left">
+        <div class="eyebrow">
+          <span class="dot"></span>
+          TEAMU PROJECT / STOCK DASHBOARD
+        </div>
+
+        <h1>股海無涯回頭是岸</h1>
+
+        <p>
+          TeamU持股儀表板：秉哲資料庫
+
+        </p>
+      </div>
+
+      <div class="hero-actions">
+        <button class="cyber-btn theme-btn" id="themeToggleBtn" type="button" aria-label="切換亮暗模式">
+          <span id="themeToggleIcon">☀</span>
+          <span id="themeToggleText">開燈</span>
+        </button>
+
+        <button class="cyber-btn primary" id="refreshBtn">
+          <span>⟳</span> 重新同步
+        </button>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <article class="stat-card glass-panel stat-cost">
+        <div class="stat-label">總投資成本</div>
+        <strong id="totalCost">NT$ 0</strong>
+      </article>
+
+      <article class="stat-card glass-panel stat-market">
+        <div class="stat-label">帳面市值</div>
+        <strong id="totalMarket">NT$ 0</strong>
+      </article>
+
+      <article class="stat-card glass-panel stat-profit">
+        <div class="stat-label">總損益</div>
+        <strong id="totalProfit">NT$ 0</strong>
+        <small id="totalRate">0.00%</small>
+      </article>
+
+      <article class="stat-card glass-panel stat-count">
+        <div class="stat-label">獲利 / 虧損檔數</div>
+        <strong id="winLossCount">
+          <span class="count-up">0</span>
+          <span class="count-sep">/</span>
+          <span class="count-down">0</span>
+        </strong>
+      </article>
+    </section>
+
+    <section class="dashboard-panel glass-panel">
+      <div class="panel-head">
+        <div>
+          <h2>持股監控矩陣</h2>
+          <div class="sync-status">
+            <span id="syncLight" class="sync-light wait"></span>
+            <p id="dataStatus">等待資料同步...</p>
+          </div>
+        </div>
+
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="搜尋股名或股票代號"
+          >
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>國際代號</th>
+              <th>股名</th>
+              <th>持股數</th>
+              <th>成交均價</th>
+              <th>投資成本</th>
+              <th>現價</th>
+              <th>帳面市值</th>
+              <th>損益</th>
+              <th>損益率</th>
+              <th>當日線圖</th>
+            </tr>
+          </thead>
+
+          <tbody id="stockTableBody">
+            <tr>
+              <td colspan="10" class="message-row">
+                資料同步中...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="chart-panel glass-panel">
+      <div class="chart-panel-head">
+        <div>
+          <h2 id="chartTitle">價格線圖</h2>
+          <p id="chartSubTitle">點選右側當日線圖後顯示走勢</p>
+        </div>
+
+        <div class="chart-range-group">
+          <button class="chart-range active" data-range="1D">當日</button>
+          <button class="chart-range" data-range="5D">5日</button>
+          <button class="chart-range" data-range="1M">1月</button>
+          <button class="chart-range" data-range="3M">3月</button>
+        </div>
+      </div>
+
+      <div class="chart-widget-box">
+        <div id="chartLoading" class="chart-placeholder">
+          尚未選擇股票
+        </div>
+        <canvas id="stockChart" aria-label="股票價格線圖"></canvas>
+      </div>
+    </section>
+
+    <section class="insights-panel glass-panel">
+      <div class="insights-head">
+        <div>
+          <h2>AI 持股情報中心</h2>
+          <p>
+            搜尋持股新聞，整理重點、判讀利多利空，並產生個股與整體持股分析。
+          </p>
+        </div>
+
+        <button class="cyber-btn primary insights-btn" id="loadInsightsBtn">
+          <span>✦</span> 搜尋新聞並產生 AI 分析
+        </button>
+      </div>
+
+      <div class="insights-status-wrap">
+        <span id="insightsLight" class="sync-light wait"></span>
+        <p id="insightsStatus">尚未載入情報分析。</p>
+      </div>
+
+      <div class="insights-layout">
+        <article class="insight-card overview-card">
+          <div class="insight-card-title">
+            <span>◈</span>
+            <h3>整體持股風險與機會</h3>
+          </div>
+
+          <div id="portfolioInsightContent" class="empty-insight">
+            點擊上方按鈕後顯示整體持股分析。
+          </div>
+        </article>
+
+        <article class="insight-card news-summary-card">
+          <div class="insight-card-title">
+            <span>▤</span>
+            <h3>持股新聞概覽</h3>
+          </div>
+
+          <div id="newsOverviewContent" class="empty-insight">
+            尚未搜尋新聞。
+          </div>
+        </article>
+      </div>
+
+      <div class="insight-section-head">
+        <h3>AI 個股建議與新聞判讀</h3>
+      </div>
+
+      <div id="stockInsightCards" class="stock-insight-grid">
+        <div class="empty-wide">
+          載入情報後，這裡會顯示每檔持股的 AI 建議、新聞摘要與利多利空判讀。
+        </div>
+      </div>
+
+      <div class="insight-section-head news-head">
+        <h3>持股相關新聞</h3>
+      </div>
+
+      <div id="newsCards" class="news-grid">
+        <div class="empty-wide">
+          尚未載入新聞資料。
+        </div>
+      </div>
+
+      <p class="ai-disclaimer">
+        AI 分析僅作為資訊整理與研究輔助，不構成投資建議。
+      </p>
+    </section>
+
+    <footer class="footer">
+      TEAMU PROJECT © Stock Command Center
+    </footer>
+
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
