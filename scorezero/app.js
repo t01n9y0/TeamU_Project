@@ -13,16 +13,17 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta7';
-const DEVICE_KEY = 'scorezero_device_id_beta7';
-const LAST_ROOM_KEY = 'scorezero_last_room_beta7';
+const VERSION = 'ScoreZero beta8';
+const DEVICE_KEY = 'scorezero_device_id_beta8';
+const LAST_ROOM_KEY = 'scorezero_last_room_beta8';
+const LAST_NICKNAME_KEY = 'scorezero_last_nickname';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const uid = () => Math.random().toString(36).slice(2, 10);
 const deviceId = (() => { let id = localStorage.getItem(DEVICE_KEY); if(!id){ id = uid()+Date.now().toString(36); localStorage.setItem(DEVICE_KEY,id); } return id; })();
 
 let unsub = [];
-let state = { screen:'home', modal:null, room:null, toast:'', loading:'', createCount:1, createRoomName:'', joinCodeDirect:'', quickDraft:{}, quickTouched:{}, light:false, awake:false, wakeLock:null, editRecId:null, joinPreview:null, joinPreviewCode:'', lobbyRooms:[], lobbyLoading:false, selectedRoomCode:'', joinName:'', busy:false };
+let state = { screen:'home', modal:null, room:null, toast:'', loading:'', createCount:1, createRoomName:'', joinCodeDirect:'', quickDraft:{}, quickTouched:{}, light:false, awake:false, wakeLock:null, editRecId:null, joinPreview:null, joinPreviewCode:'', lobbyRooms:[], lobbyLoading:false, selectedRoomCode:'', joinName:localStorage.getItem(LAST_NICKNAME_KEY)||'', busy:false };
 const HUMOR_ROOM_NAMES = ['讓子彈飛一會','報告班長能贏','方丈為人小心眼','我是跟著鄉民進來看熱鬧的','我全都要俱樂部','威龍闖天關廳','五百萬才胡牌局','周星馳電影同好會','看好了世界我們只賭這把','一言不合就開賭','懂的都懂交易所','哭啊這樣也能贏','高手在民間廳','我就爛俱樂部','五樓你怎麼看廳','麥當勞歡樂送點','神功護體不怕輸','賭神高進VIP','看我把你阿嬤賣掉','你終究是要輸的','阿姨我不想努力了','看戲不嫌事大廳','教練我想打牌','真香定律體驗館','國家級邊緣人聚會','發大財研究所','歸剛欸吵架所','我就問你怎麼輸','可憐哪沒牌胡','大人的世界好複雜','男同俱樂部','德撲無限梭哈王','悠閒德州邊緣人','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘'];
 function randomRoomName(){ return HUMOR_ROOM_NAMES[Math.floor(Math.random()*HUMOR_ROOM_NAMES.length)]; }
 function fmt(n){ n = Number(n||0); return (n>0?'+':'') + n; }
@@ -111,7 +112,7 @@ function quickRow(p){
 
 const modals = {
   create(){ return `<div class="modal"><div class="sheet"><h2>建立房間</h2><div class="field"><label>房間名稱</label><input id="roomName" value="${esc(state.createRoomName||randomRoomName())}"></div><div class="field"><label>玩家數量</label><div class="counter"><button class="secondary" data-act="decCount">－</button><strong>${state.createCount}</strong><button class="secondary" data-act="incCount">＋</button></div></div><div id="nameInputs" class="nameInputs">${createNameInputs()}</div><div class="field"><label>起始點數</label><input id="start" type="number" value="0" inputmode="numeric"></div><label class="check"><input id="zero" type="checkbox" checked> 開啟總和歸零檢查</label><div class="grid"><button data-act="createRoom">建立</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
-  join(){ return `<div class="modal"><div class="sheet"><h2>加入房間</h2><div class="field"><label>你的暱稱</label><input id="joinName" placeholder="先輸入暱稱" value="${esc(state.joinName||'')}"></div>${joinLobbyHtml()}<div class="grid"><button data-act="joinRoom">加入</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
+  join(){ return `<div class="modal"><div class="sheet"><h2>加入房間</h2><div class="field"><label>你的暱稱</label><input id="joinName" placeholder="先輸入暱稱" value="${esc(state.joinName||'')}"></div>${joinLobbyHtml()}<div class="grid"><button data-act="loadRooms">查詢目前房間</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   add(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>新增紀錄</h2>${r.players.map(p=>`<div class="field"><label>${esc(p.name)}</label><input data-player="${p.id}" type="number" inputmode="numeric" value="0"></div>`).join('')}<div class="field"><label>備註</label><input id="note" placeholder="可不填"></div><div class="grid"><button data-act="submitRecord">送出</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   players(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>玩家管理</h2>${!isOwner()?'<p class="muted">只有房主可以修改玩家。</p>':'<p class="muted">房主可修改名稱、起始分數或移除玩家。</p>'}${r.players.map(p=>`<div class="playerEdit removeGrid"><input data-name="${p.id}" value="${esc(p.name)}" ${!isOwner()?'disabled':''}><input data-start="${p.id}" type="number" inputmode="numeric" value="${p.startScore||0}" ${!isOwner()?'disabled':''}>${isOwner()?`<button class="danger small" data-remplayer="${p.id}">移除</button>`:''}</div>`).join('')}<div class="divider"></div>${isOwner()?`<div class="playerEdit"><input id="newPlayer" placeholder="新增玩家暱稱"><input id="newStart" type="number" inputmode="numeric" value="0"></div><div class="grid"><button data-act="savePlayers">儲存</button><button class="secondary" data-act="closeModal">關閉</button></div>`:`<button class="secondary" style="width:100%" data-act="closeModal">關閉</button>`}</div></div>`; },
   history(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>歷史紀錄</h2>${r.records.length?[...r.records].reverse().map((rec,i)=>`<div class="historyItem"><div class="histTop"><span>第 ${r.records.length-i} 筆｜${time(rec.createdAtMs)}</span><div>${isOwner()?`<button class="secondary small" data-editrec="${rec.id}">修改</button><button class="danger small" data-delrec="${rec.id}">刪除</button>`:''}</div></div><div class="changes">${(rec.items||[]).map(it=>`${esc(r.players.find(p=>p.id===it.playerId)?.name||'玩家')} ${fmt(it.points)}`).join('　')}</div>${rec.note?`<div class="sub">${esc(rec.note)}</div>`:''}</div>`).join(''):'<p class="muted">尚無紀錄</p>'}<button class="secondary" style="width:100%" data-act="closeModal">關閉</button></div></div>`; },
@@ -122,8 +123,8 @@ const modals = {
 function joinLobbyHtml(){
   if(!state.joinName.trim()) return '<div class="preview muted">請先輸入暱稱，再用房號加入或查詢目前房間。</div>';
   const selected = state.lobbyRooms.find(r=>r.code===state.selectedRoomCode);
-  const list = state.lobbyLoading ? '<div class="preview">查詢房間中...</div>' : (state.lobbyRooms.length ? state.lobbyRooms.map(r=>`<button class="roomPreviewCard ${r.code===state.selectedRoomCode?'selected':''}" data-roompick="${r.code}"><b>${esc(r.name||'記分房')}</b><span>房主：${esc(r.ownerName||'未知')}｜${Number(r.playerCount||0)} 人｜閒置 ${idleText(r.lastActiveAtMs)}</span><small>${r.code===state.selectedRoomCode?'已選擇，請輸入房號密碼後加入':'點選後需輸入房號密碼'}</small></button>`).join('') : '<div class="preview muted">目前沒有可加入的房間。</div>');
-  return `<div class="field"><label>輸入房號</label><input id="joinCodeDirect" inputmode="numeric" maxlength="4" placeholder="輸入房號" value="${esc(state.joinCodeDirect||'')}"></div><div class="grid"><button class="secondary" data-act="loadRooms">查詢目前房間</button><button class="secondary" data-act="clearJoinSelect">清除選擇</button></div><div class="field"><label>目前房間</label>${list}</div>${selected?`<div class="field"><label>房號密碼</label><input id="joinCode" inputmode="numeric" maxlength="4" placeholder="輸入房號" value="${esc(state.joinPreviewCode||'')}"></div>`:''}`;
+  const list = state.lobbyLoading ? '<div class="preview">查詢房間中...</div>' : (state.lobbyRooms.length ? state.lobbyRooms.map(r=>`<button class="roomPreviewCard ${r.code===state.selectedRoomCode?'selected':''}" data-roompick="${r.code}"><b>${esc(r.name||'記分房')}</b><span>房主：${esc(r.ownerName||'未知')}｜${Number(r.playerCount||0)} 人｜閒置 ${idleText(r.lastActiveAtMs)}</span><small>${r.code===state.selectedRoomCode?'已選擇，請輸入房號加入':'點選輸入房號加入'}</small></button>`).join('') : '<div class="preview muted">目前沒有可加入的房間。</div>');
+  return `<div class="field"><label>輸入房號</label><input id="joinCodeDirect" inputmode="numeric" maxlength="4" placeholder="輸入房號" value="${esc(state.joinCodeDirect||'')}"></div><button style="width:100%;margin-bottom:14px" class="secondary" data-act="joinRoom">透過房號加入</button><div class="field"><label>目前房間</label>${list}</div>${selected?`<div class="field"><label>房號密碼</label><input id="joinCode" inputmode="numeric" maxlength="4" placeholder="輸入房號" value="${esc(state.joinPreviewCode||'')}"></div><button style="width:100%;margin-bottom:14px" class="secondary" data-act="joinRoom">加入選擇房間</button>`:''}`;
 }
 let lobbyTimer=null;
 function loadLobbyRooms(){
@@ -159,7 +160,7 @@ function idleText(ms){
 }
 function esc(s=''){ return String(s).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function time(ms){ return ms ? new Date(ms).toLocaleTimeString() : '同步中'; }
-function createNameInputs(){ const n=Math.max(1,Math.min(20,Number(state.createCount||1))); return Array.from({length:n},(_,i)=>`<div class="field"><label>玩家 ${i+1}</label><input class="cname" value="${i===0?'房主':'玩家'+(i+1)}"></div>`).join(''); }
+function createNameInputs(){ const n=Math.max(1,Math.min(20,Number(state.createCount||1))); const nick=localStorage.getItem(LAST_NICKNAME_KEY)||'房主'; return Array.from({length:n},(_,i)=>`<div class="field"><label>玩家 ${i+1}</label><input class="cname" value="${i===0?esc(nick):'玩家'+(i+1)}"></div>`).join(''); }
 function bind(){
   $$('[data-act]').forEach(b=>b.onclick=()=>act(b.dataset.act));
   $$('[data-qplayer]').forEach(inp=>{ inp.oninput=()=>{ state.quickTouched[inp.dataset.qplayer]=true; state.quickDraft[inp.dataset.qplayer]=inp.value; autoFillQuick(); syncQuickInputs(); }; });
@@ -167,7 +168,7 @@ function bind(){
   $$('[data-delrec]').forEach(b=>b.onclick=()=>deleteRecord(b.dataset.delrec));
   $$('[data-editrec]').forEach(b=>b.onclick=()=>{ state.editRecId=b.dataset.editrec; state.modal='editRecord'; render(); });
   $$('[data-remplayer]').forEach(b=>b.onclick=()=>removePlayer(b.dataset.remplayer));
-  const jn=$('#joinName'); if(jn) jn.oninput=()=>{ state.joinName=jn.value; state.lobbyRooms=[]; state.selectedRoomCode=''; };
+  const jn=$('#joinName'); if(jn) jn.oninput=()=>{ state.joinName=jn.value; localStorage.setItem(LAST_NICKNAME_KEY, state.joinName.trim()); state.lobbyRooms=[]; state.selectedRoomCode=''; };
   const rn=$('#roomName'); if(rn) rn.oninput=()=>{ state.createRoomName=rn.value; };
   const jcd=$('#joinCodeDirect'); if(jcd) jcd.oninput=()=>{ state.joinCodeDirect=jcd.value.replace(/\D/g,'').slice(0,4); if(jcd.value!==state.joinCodeDirect) jcd.value=state.joinCodeDirect; };
   const jc=$('#joinCode'); if(jc) jc.oninput=()=>{ state.joinPreviewCode=jc.value.replace(/\D/g,'').slice(0,4); if(jc.value!==state.joinPreviewCode) jc.value=state.joinPreviewCode; };
@@ -245,6 +246,7 @@ async function createRoom(){
   const names=$$('.cname').map(i=>i.value.trim()).filter(Boolean);
   const start=Number($('#start').value||0);
   if(names.length<1) return toast('至少需要 1 位玩家');
+  localStorage.setItem(LAST_NICKNAME_KEY, names[0]);
   if(state.busy) return; state.busy=true;
   setLoading('建立房間中');
   try{
@@ -263,6 +265,8 @@ async function createRoom(){
 async function joinRoom(){
   const name=($('#joinName').value||state.joinName||'').trim();
   if(!name) return toast('請先輸入暱稱');
+  localStorage.setItem(LAST_NICKNAME_KEY, name);
+  state.joinName = name;
   const direct=($('#joinCodeDirect').value||state.joinCodeDirect||'').trim();
   const pass=($('#joinCode').value||state.joinPreviewCode||'').trim();
   const c=state.selectedRoomCode || direct;
