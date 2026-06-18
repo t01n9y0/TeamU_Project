@@ -1,5 +1,18 @@
-const CACHE_NAME = 'scorezero-beta8-20260618';
-const FILES = ['./','./index.html?v=beta8','./style.css?v=beta8','./app.js?v=beta8','./manifest.json?v=beta8'];
-self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES))); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))))); self.clients.claim(); });
-self.addEventListener('fetch', e => { e.respondWith(fetch(e.request).catch(() => caches.match(e.request))); });
+const CACHE_NAME = 'scorezero-beta9-20260618';
+const FILES = ['./','./index.html?v=beta9','./style.css?v=beta9','./app.js?v=beta9','./manifest.json?v=beta9','./icon.png'];
+self.addEventListener('install', e => {
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES).catch(() => c.addAll(FILES.filter(f => f !== './icon.png')))));
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET') return;
+  e.respondWith(fetch(e.request).then(res => {
+    const copy = res.clone();
+    caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(()=>{});
+    return res;
+  }).catch(() => caches.match(e.request)));
+});

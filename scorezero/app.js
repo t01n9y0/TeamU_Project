@@ -13,7 +13,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta8';
+const VERSION = 'ScoreZero beta9';
 const DEVICE_KEY = 'scorezero_device_id_beta8';
 const LAST_ROOM_KEY = 'scorezero_last_room_beta8';
 const LAST_NICKNAME_KEY = 'scorezero_last_nickname';
@@ -91,7 +91,7 @@ function loadingView(text){ return `<div class="loadingLayer"><div class="loadin
 function setLoading(text){ state.loading=text||''; render(); }
 
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}</div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p></p><p>末流 TingYo 題</p></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥陳俊傑，風骨灑脫，笑看牌桌，是眾人所仰之偶像；今以此板致敬，願其精神長存。</p><p>末流 TingYo 題</p></div>`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
@@ -111,6 +111,7 @@ function quickRow(p){
 }
 
 const modals = {
+  install(){ return `<div class="modal"><div class="sheet"><h2>加入手機主畫面</h2><div class="installSplash"><div class="splashIcon">♠</div><div><b>ScoreZero 撲克記分板</b><p>安裝後可像 App 一樣從手機桌面開啟。</p></div></div><div class="intro classic"><p>iPhone：請用 Safari 開啟，點下方分享按鈕，選「加入主畫面」。</p><p>Android：若瀏覽器跳出安裝提示，按「安裝」即可；也可從瀏覽器選單加入主畫面。</p><p class="muted">請將 icon.png 放在網站根目錄，路徑為 <code>scorezero/icon.png</code> 或部署後同層的 <code>icon.png</code>。</p></div><button class="secondary" style="width:100%;margin-top:12px" data-act="closeModal">知道了</button></div></div>`; },
   create(){ return `<div class="modal"><div class="sheet"><h2>建立房間</h2><div class="field"><label>房間名稱</label><input id="roomName" value="${esc(state.createRoomName||randomRoomName())}"></div><div class="field"><label>玩家數量</label><div class="counter"><button class="secondary" data-act="decCount">－</button><strong>${state.createCount}</strong><button class="secondary" data-act="incCount">＋</button></div></div><div id="nameInputs" class="nameInputs">${createNameInputs()}</div><div class="field"><label>起始點數</label><input id="start" type="number" value="0" inputmode="numeric"></div><label class="check"><input id="zero" type="checkbox" checked> 開啟總和歸零檢查</label><div class="grid"><button data-act="createRoom">建立</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   join(){ return `<div class="modal"><div class="sheet"><h2>加入房間</h2><div class="field"><label>你的暱稱</label><input id="joinName" placeholder="先輸入暱稱" value="${esc(state.joinName||'')}"></div>${joinLobbyHtml()}<div class="grid"><button data-act="loadRooms">查詢目前房間</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   add(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>新增紀錄</h2>${r.players.map(p=>`<div class="field"><label>${esc(p.name)}</label><input data-player="${p.id}" type="number" inputmode="numeric" value="0"></div>`).join('')}<div class="field"><label>備註</label><input id="note" placeholder="可不填"></div><div class="grid"><button data-act="submitRecord">送出</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
@@ -193,6 +194,7 @@ async function act(a){
   try{
     if(a==='home'){ clearSubs(); state.screen='home'; state.modal=null; state.room=null; render(); }
     if(a==='returnRoom') await returnRoom();
+    if(a==='installApp') await installApp();
     if(a==='createSetup'){ state.createRoomName=randomRoomName(); state.modal='create'; render(); }
     if(a==='joinSetup'){ state.modal='join'; state.selectedRoomCode=''; state.joinPreviewCode=''; state.joinCodeDirect=''; state.lobbyRooms=[]; render(); }
     if(a==='closeModal'){ state.modal=null; render(); }
@@ -217,6 +219,19 @@ async function act(a){
 }
 
 
+async function installApp(){
+  if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){ toast('已是主畫面模式'); return; }
+  if(installPromptEvent){
+    const promptEvent = installPromptEvent;
+    installPromptEvent = null;
+    await promptEvent.prompt();
+    await promptEvent.userChoice.catch(()=>null);
+    render();
+  }else{
+    state.modal='install';
+    render();
+  }
+}
 async function returnRoom(){
   const c=localStorage.getItem(LAST_ROOM_KEY)||'';
   if(!/^\d{4}$/.test(c)) return toast('尚無可返回房間');
