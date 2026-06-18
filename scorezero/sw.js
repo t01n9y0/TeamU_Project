@@ -1,5 +1,5 @@
-const CACHE_NAME = 'scorezero-beta9-20260618';
-const FILES = ['./','./index.html?v=beta9','./style.css?v=beta9','./app.js?v=beta9','./manifest.json?v=beta9','./icon.png'];
+const CACHE_NAME = 'scorezero-beta10-20260618';
+const FILES = ['./','./index.html?v=beta10','./style.css?v=beta10','./app.js?v=beta10','./manifest.json?v=beta10','./icon.png'];
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES).catch(() => c.addAll(FILES.filter(f => f !== './icon.png')))));

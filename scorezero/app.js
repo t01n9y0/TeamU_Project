@@ -13,14 +13,20 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta9';
-const DEVICE_KEY = 'scorezero_device_id_beta8';
-const LAST_ROOM_KEY = 'scorezero_last_room_beta8';
+const VERSION = 'ScoreZero beta10';
+const DEVICE_KEY = 'scorezero_device_id_beta10';
+const LAST_ROOM_KEY = 'scorezero_last_room_beta10';
 const LAST_NICKNAME_KEY = 'scorezero_last_nickname';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const uid = () => Math.random().toString(36).slice(2, 10);
 const deviceId = (() => { let id = localStorage.getItem(DEVICE_KEY); if(!id){ id = uid()+Date.now().toString(36); localStorage.setItem(DEVICE_KEY,id); } return id; })();
+
+let installPromptEvent = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPromptEvent = event;
+});
 
 let unsub = [];
 let state = { screen:'home', modal:null, room:null, toast:'', loading:'', createCount:1, createRoomName:'', joinCodeDirect:'', quickDraft:{}, quickTouched:{}, light:false, awake:false, wakeLock:null, editRecId:null, joinPreview:null, joinPreviewCode:'', lobbyRooms:[], lobbyLoading:false, selectedRoomCode:'', joinName:localStorage.getItem(LAST_NICKNAME_KEY)||'', busy:false };
@@ -91,7 +97,7 @@ function loadingView(text){ return `<div class="loadingLayer"><div class="loadin
 function setLoading(text){ state.loading=text||''; render(); }
 
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥，風骨灑脫，笑看人生，是眾人所仰之偶像；今以此板致敬，願其精神長存，尋找紅心A。</p><p>末流 TingYo 題</p></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥陳俊傑，風骨灑脫，笑看牌桌，是眾人所仰之偶像；今以此板致敬，願其精神長存。</p><p>末流 TingYo 題</p></div>`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
