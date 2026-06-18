@@ -91,7 +91,7 @@ function loadingView(text){ return `<div class="loadingLayer"><div class="loadin
 function setLoading(text){ state.loading=text||''; render(); }
 
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥陳俊傑，風骨灑脫，笑看牌桌，是眾人所仰之偶像；今以此板致敬，願其精神長存。</p><p>末流 TingYo 題</p></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥，風骨灑脫，笑看人生，是眾人所仰之偶像；今以此板致敬，願其精神長存，尋找紅心A。</p><p>末流 TingYo 題</p></div>`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
