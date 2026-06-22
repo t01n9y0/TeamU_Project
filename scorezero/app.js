@@ -13,16 +13,23 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta7';
-const DEVICE_KEY = 'scorezero_device_id_beta7';
-const LAST_ROOM_KEY = 'scorezero_last_room_beta7';
+const VERSION = 'ScoreZero beta12';
+const DEVICE_KEY = 'scorezero_device_id_beta12';
+const LAST_ROOM_KEY = 'scorezero_last_room_beta12';
+const LAST_NICKNAME_KEY = 'scorezero_last_nickname';
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const uid = () => Math.random().toString(36).slice(2, 10);
 const deviceId = (() => { let id = localStorage.getItem(DEVICE_KEY); if(!id){ id = uid()+Date.now().toString(36); localStorage.setItem(DEVICE_KEY,id); } return id; })();
 
+let installPromptEvent = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault();
+  installPromptEvent = event;
+});
+
 let unsub = [];
-let state = { screen:'home', modal:null, room:null, toast:'', toastType:'', loading:'', bootReady:false, createCount:1, createRoomName:'', joinCodeDirect:'', quickDraft:{}, quickTouched:{}, light:false, awake:false, wakeLock:null, editRecId:null, joinPreview:null, joinPreviewCode:'', lobbyRooms:[], lobbyLoading:false, selectedRoomCode:'', joinName:'', busy:false };
+let state = { screen:'home', modal:null, room:null, toast:'', toastType:'', loading:'', bootReady:false, createCount:1, createRoomName:'', joinCodeDirect:'', quickDraft:{}, quickTouched:{}, light:false, awake:false, wakeLock:null, editRecId:null, joinPreview:null, joinPreviewCode:'', lobbyRooms:[], lobbyLoading:false, selectedRoomCode:'', joinName:localStorage.getItem(LAST_NICKNAME_KEY)||'', busy:false };
 const HUMOR_ROOM_NAMES = ['讓子彈飛一會','報告班長能贏','方丈為人小心眼','我是跟著鄉民進來看熱鬧的','我全都要俱樂部','威龍闖天關廳','五百萬才胡牌局','周星馳電影同好會','看好了世界我們只賭這把','一言不合就開賭','懂的都懂交易所','哭啊這樣也能贏','高手在民間廳','我就爛俱樂部','五樓你怎麼看廳','麥當勞歡樂送點','神功護體不怕輸','賭神高進VIP','看我把你阿嬤賣掉','你終究是要輸的','阿姨我不想努力了','看戲不嫌事大廳','教練我想打牌','真香定律體驗館','國家級邊緣人聚會','發大財研究所','歸剛欸吵架所','我就問你怎麼輸','可憐哪沒牌胡','大人的世界好複雜','男同俱樂部','德撲無限梭哈王','悠閒德州邊緣人','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘','屁↗眼↘派↗對↘'];
 const DEFAULT_QUICK_VALUES = [100,50,10,5,1];
 function randomRoomName(){ return HUMOR_ROOM_NAMES[Math.floor(Math.random()*HUMOR_ROOM_NAMES.length)]; }
@@ -59,6 +66,12 @@ document.addEventListener('visibilitychange', async () => {
 function quickValues(){
   const vals = (state.room?.quickValues || DEFAULT_QUICK_VALUES).map(v=>Math.abs(Number(v||0))).filter(v=>v>0);
   return vals.slice(0,5);
+}
+function quickSettingInputs(){
+  const vals = quickValues();
+  const filled = [...vals];
+  while(filled.length<5) filled.push('');
+  return filled.map((v,i)=>`<input class="quickSet" type="number" inputmode="numeric" placeholder="快捷 ${i+1}" value="${v}">`).join('');
 }
 
 async function genRoomCode(){
@@ -103,7 +116,7 @@ function loadingView(text){ return `<div class="loadingLayer"><div class="loadin
 function setLoading(text){ state.loading=text||''; render(); }
 
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}</div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p></p><p>末流 TingYo 題</p></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><p>凡友朋戲局，分數往來，最忌口算紛亂。本板以四碼入房，眾人同記；分合即明，總和歸零，勝負有據。</p><p>然牌戲怡情，不可沉迷；以賭為業者，實為下策。願君記分而不迷財，遊戲而不失度。</p><p>又念光頭哥哥陳俊傑，風骨灑脫，笑看牌桌，是眾人所仰之偶像；今以此板致敬，願其精神長存。</p><p>末流 TingYo 題</p></div>`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
@@ -125,6 +138,7 @@ function quickRow(p){
 }
 
 const modals = {
+  install(){ return `<div class="modal"><div class="sheet"><h2>加入手機主畫面</h2><div class="installSplash"><div class="splashIcon">♠</div><div><b>ScoreZero 撲克記分板</b><p>安裝後可像 App 一樣從手機桌面開啟。</p></div></div><div class="intro classic"><p>iPhone：請用 Safari 開啟，點下方分享按鈕，選「加入主畫面」。</p><p>Android：若瀏覽器跳出安裝提示，按「安裝」即可；也可從瀏覽器選單加入主畫面。</p><p class="muted">請將 icon.png 放在網站根目錄，路徑為 <code>scorezero/icon.png</code> 或部署後同層的 <code>icon.png</code>。</p></div><div class="grid"><button data-act="shareApp">分享</button><button class="secondary" data-act="closeModal">確定</button></div></div></div>`; },
   create(){ return `<div class="modal"><div class="sheet"><h2>建立房間</h2><div class="field"><label>房間名稱</label><input id="roomName" value="${esc(state.createRoomName||randomRoomName())}"></div><div class="field"><label>玩家數量</label><div class="counter"><button class="secondary" data-act="decCount">－</button><strong>${state.createCount}</strong><button class="secondary" data-act="incCount">＋</button></div></div><div id="nameInputs" class="nameInputs">${createNameInputs()}</div><div class="field"><label>起始點數</label><input id="start" type="number" value="0" inputmode="numeric"></div><label class="check"><input id="zero" type="checkbox" checked> 開啟總和歸零檢查</label><div class="grid"><button data-act="createRoom">建立</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   join(){ return `<div class="modal"><div class="sheet"><h2>加入房間</h2><div class="field"><label>你的暱稱</label><input id="joinName" placeholder="先輸入暱稱" value="${esc(state.joinName||'')}"></div>${joinLobbyHtml()}<div class="grid"><button data-act="loadRooms">查詢目前房間</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   add(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>新增紀錄</h2>${r.players.map(p=>`<div class="field"><label>${esc(p.name)}</label><input data-player="${p.id}" type="text" inputmode="decimal" value="0"></div>`).join('')}<div class="field"><label>備註</label><input id="note" placeholder="可不填"></div><div class="grid"><button data-act="submitRecord">送出</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
@@ -175,7 +189,7 @@ function idleText(ms){
 }
 function esc(s=''){ return String(s).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 function time(ms){ return ms ? new Date(ms).toLocaleTimeString() : '同步中'; }
-function createNameInputs(){ const n=Math.max(1,Math.min(20,Number(state.createCount||1))); return Array.from({length:n},(_,i)=>`<div class="field"><label>玩家 ${i+1}</label><input class="cname" value="${i===0?'房主':'玩家'+(i+1)}"></div>`).join(''); }
+function createNameInputs(){ const n=Math.max(1,Math.min(20,Number(state.createCount||1))); const nick=localStorage.getItem(LAST_NICKNAME_KEY)||'房主'; return Array.from({length:n},(_,i)=>`<div class="field"><label>玩家 ${i+1}</label><input class="cname" value="${i===0?esc(nick):'玩家'+(i+1)}"></div>`).join(''); }
 function bind(){
   $$('[data-act]').forEach(b=>b.onclick=()=>act(b.dataset.act));
   $$('[data-qplayer]').forEach(inp=>{ inp.oninput=()=>{ state.quickTouched[inp.dataset.qplayer]=true; state.quickDraft[inp.dataset.qplayer]=inp.value; autoFillQuick(); syncQuickInputs(); }; });
@@ -183,7 +197,7 @@ function bind(){
   $$('[data-delrec]').forEach(b=>b.onclick=()=>deleteRecord(b.dataset.delrec));
   $$('[data-editrec]').forEach(b=>b.onclick=()=>{ state.editRecId=b.dataset.editrec; state.modal='editRecord'; render(); });
   $$('[data-remplayer]').forEach(b=>b.onclick=()=>removePlayer(b.dataset.remplayer));
-  const jn=$('#joinName'); if(jn) jn.oninput=()=>{ state.joinName=jn.value; state.lobbyRooms=[]; state.selectedRoomCode=''; };
+  const jn=$('#joinName'); if(jn) jn.oninput=()=>{ state.joinName=jn.value; localStorage.setItem(LAST_NICKNAME_KEY, state.joinName.trim()); state.lobbyRooms=[]; state.selectedRoomCode=''; };
   const rn=$('#roomName'); if(rn) rn.oninput=()=>{ state.createRoomName=rn.value; };
   const jcd=$('#joinCodeDirect'); if(jcd) jcd.oninput=()=>{ state.joinCodeDirect=jcd.value.replace(/\D/g,'').slice(0,4); if(jcd.value!==state.joinCodeDirect) jcd.value=state.joinCodeDirect; };
   const jc=$('#joinCode'); if(jc) jc.oninput=()=>{ state.joinPreviewCode=jc.value.replace(/\D/g,'').slice(0,4); if(jc.value!==state.joinPreviewCode) jc.value=state.joinPreviewCode; };
@@ -208,6 +222,8 @@ async function act(a){
   try{
     if(a==='home'){ clearSubs(); state.screen='home'; state.modal=null; state.room=null; render(); }
     if(a==='returnRoom') await returnRoom();
+    if(a==='installApp') await installApp();
+    if(a==='shareApp') await shareApp();
     if(a==='createSetup'){ state.createRoomName=randomRoomName(); state.modal='create'; render(); }
     if(a==='joinSetup'){ state.modal='join'; state.selectedRoomCode=''; state.joinPreviewCode=''; state.joinCodeDirect=''; state.lobbyRooms=[]; render(); }
     if(a==='closeModal'){ state.modal=null; render(); }
@@ -233,6 +249,19 @@ async function act(a){
 }
 
 
+async function installApp(){
+  if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone){ toast('已是主畫面模式'); return; }
+  if(installPromptEvent){
+    const promptEvent = installPromptEvent;
+    installPromptEvent = null;
+    await promptEvent.prompt();
+    await promptEvent.userChoice.catch(()=>null);
+    render();
+  }else{
+    state.modal='install';
+    render();
+  }
+}
 async function shareApp(){
   const shareData={title:'ScoreZero 撲克記分板', text:'多人同步記分，總和自動檢查。', url:location.href};
   try{ if(navigator.share) await navigator.share(shareData); else { await navigator.clipboard.writeText(location.href); toast('網址已複製'); } }
@@ -268,6 +297,7 @@ async function createRoom(){
   const names=$$('.cname').map(i=>i.value.trim()).filter(Boolean);
   const start=Number($('#start').value||0);
   if(names.length<1) return toast('至少需要 1 位玩家');
+  localStorage.setItem(LAST_NICKNAME_KEY, names[0]);
   if(state.busy) return; state.busy=true;
   setLoading('建立房間中');
   try{
@@ -286,8 +316,12 @@ async function createRoom(){
 async function joinRoom(){
   const name=($('#joinName').value||state.joinName||'').trim();
   if(!name) return toast('請先輸入暱稱');
-  const direct=($('#joinCodeDirect').value||state.joinCodeDirect||'').trim();
-  const pass=($('#joinCode').value||state.joinPreviewCode||'').trim();
+  localStorage.setItem(LAST_NICKNAME_KEY, name);
+  state.joinName = name;
+  const directEl = $('#joinCodeDirect');
+  const passEl = $('#joinCode');
+  const direct=((directEl?.value)||state.joinCodeDirect||'').trim();
+  const pass=((passEl?.value)||state.joinPreviewCode||'').trim();
   const c=state.selectedRoomCode || direct;
   const typed=state.selectedRoomCode ? pass : direct;
   if(!/^\d{4}$/.test(typed)) return toast('請輸入 4 碼房號');
