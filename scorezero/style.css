@@ -21,8 +21,7 @@ html,body{min-height:100%;overscroll-behavior:none;background:#0f172a}body{touch
 .qButtonRow{display:grid;grid-template-columns:repeat(var(--quick-columns),minmax(0,1fr));gap:6px}
 .qbtn{min-width:0;min-height:38px;overflow-wrap:anywhere}
 .qName [hidden]{display:none}
-.joinAction,.resetScores{width:100%}
-.joinAction{margin-bottom:8px}
+.joinAction{width:100%;margin-bottom:8px}
 .signedInput{display:grid;grid-template-columns:minmax(0,1fr) 56px;gap:8px}
 .signedInput button{padding:8px;font-size:22px}
 .confirmScoreModal{align-items:center}

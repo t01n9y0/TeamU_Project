@@ -97,26 +97,38 @@ function quickSettingInputs(){
   return filled.map((v,i)=>`<input class="quickSet" type="number" min="0" inputmode="numeric" aria-label="快捷 ${i+1}" placeholder="快捷 ${i+1}" value="${v}">`).join('');
 }
 
-async function genRoomCode(){
+async function saveNewRoom(room, players){
   for(let i=0;i<30;i++){
-    const c = String(Math.floor(1000 + Math.random()*9000));
-    if(!(await getDoc(roomRef(c))).exists()) return c;
+    const code=String(Math.floor(1000+Math.random()*9000));
+    const ref=roomRef(code);
+    const newRoom={...room,code};
+    const created=await runTransaction(db,async transaction=>{
+      if((await transaction.get(ref)).exists()) return false;
+      transaction.set(ref,newRoom);
+      players.forEach(({id,...data})=>transaction.set(doc(playersRef(code),id),data));
+      return true;
+    });
+    if(created) return newRoom;
   }
   throw new Error('房號產生失敗，請再試一次');
 }
 
-async function subscribeRoom(code, initialData={}){
+async function subscribeRoom(code, initialData={}, initialPlayers=[]){
   clearSubs();
-  const base = { ...initialData, code, players:[], rawPlayers:[], records:[], allRecords:[] };
+  const base = { ...initialData, code, players:[], rawPlayers:initialPlayers, records:[], allRecords:[] };
+  calcScores(base);
   state.room=base;
   state.pendingRecord=null;
   state.scoreAnimation=null;
-  unsub.push(onSnapshot(roomRef(code), snap => {
+  unsub.push(onSnapshot(roomRef(code), {includeMetadataChanges:true}, snap => {
     if(state.room?.code!==code) return;
-    if(!snap.exists()){ leaveRoom(); toast('房間不存在'); return; }
     const data=snap.data();
+    const expired=data?.expiresAtMs && Date.now()>Number(data.expiresAtMs);
+    // A new room can be missing from the cache until Firestore sends the server snapshot.
+    if(snap.metadata.fromCache && (initialPlayers.length || !data || data.closed || expired)) return;
+    if(!data){ leaveRoom(); toast('房間不存在'); return; }
     if(data.closed){ leaveRoom(); toast('房間已關閉'); return; }
-    if(data.expiresAtMs && Date.now()>Number(data.expiresAtMs)){ closeExpiredRoom(code); return; }
+    if(expired){ closeExpiredRoom(code); return; }
     const wasAuto=autoBalanceOn();
     const wasGeneration=state.room.scoreGeneration||'';
     Object.assign(state.room, data, {code,players:state.room.rawPlayers});
@@ -126,9 +138,15 @@ async function subscribeRoom(code, initialData={}){
       if(['confirmScore','editRecord'].includes(state.modal)) state.modal=null;
     } else if(wasAuto!==autoBalanceOn()) autoFillQuick();
     render();
-  }));
-  unsub.push(onSnapshot(query(playersRef(code), orderBy('order','asc')), snap => {
+  }, error => {
     if(state.room?.code!==code) return;
+    console.error(error);
+    leaveRoom();
+    toast('無法讀取房間，請再試一次');
+  }));
+  unsub.push(onSnapshot(query(playersRef(code), orderBy('order','asc')), {includeMetadataChanges:true}, snap => {
+    if(state.room?.code!==code) return;
+    if(snap.metadata.fromCache && initialPlayers.length && !snap.size) return;
     state.room.rawPlayers=snap.docs.map(d=>({id:d.id,...d.data()}));
     state.room.players=state.room.rawPlayers;
     calcScores(state.room); render();
@@ -191,7 +209,7 @@ function animateScores(){
     const eased=1-(1-progress)**3;
     targets.forEach(el=>{
       const {start,end}=animation.from.get(el.dataset.scoreValue);
-      const value=progress===1 ? end : Math.round((start+(end-start)*eased)*100)/100;
+      const value=progress===1 ? end : Math.round(start+(end-start)*eased);
       el.textContent=fmt(value);
       el.style.transform=progress===1 ? '' : `scale(${1+0.18*Math.sin(Math.PI*progress)**2})`;
     });
@@ -228,7 +246,7 @@ const modals = {
   create(){ return `<div class="modal"><div class="sheet"><h2>建立房間</h2><div class="field"><label for="roomName">房間名稱</label><input id="roomName" value="${esc(state.createRoomName)}"></div><div class="field"><label>玩家數量</label><div class="counter"><button class="secondary" data-act="decCount" aria-label="減少玩家">－</button><strong>${state.createCount}</strong><button class="secondary" data-act="incCount" aria-label="增加玩家">＋</button></div></div><div class="nameInputs">${createNameInputs()}</div><div class="field"><label for="start">起始點數</label><input id="start" type="number" value="${esc(state.createStart)}" inputmode="numeric"></div><label class="check"><input id="zero" type="checkbox" ${state.createZero?'checked':''}> 開啟總和歸零檢查</label><div class="grid"><button data-act="createRoom">建立</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   join(){ return `<div class="modal"><div class="sheet joinSheet"><h2>加入房間</h2><div class="field"><label for="joinName">你的暱稱</label><input id="joinName" placeholder="先輸入暱稱" value="${esc(state.joinName)}"></div><div id="joinLobby">${joinLobbyHtml()}</div><div class="grid"><button data-act="loadRooms" ${state.lobbyLoading?'disabled':''}>查詢目前房間</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
   add(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>新增紀錄</h2>${r.players.map(p=>`<div class="field"><label>${esc(p.name)}</label><input data-player="${p.id}" type="text" inputmode="decimal" value="0"></div>`).join('')}<div class="field"><label>備註</label><input id="note" placeholder="可不填"></div><div class="grid"><button data-act="submitRecord">送出</button><button class="secondary" data-act="closeModal">取消</button></div></div></div>`; },
-  players(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>玩家管理</h2>${!isOwner()?'<p class="muted">只有房主可以修改玩家。</p>':'<p class="muted">房主可修改名稱、起始分數或移除玩家。</p>'}${r.players.map(p=>`<div class="playerEdit removeGrid"><input data-name="${p.id}" value="${esc(p.name)}" ${!isOwner()?'disabled':''}><input data-start="${p.id}" type="number" inputmode="numeric" value="${p.startScore||0}" ${!isOwner()?'disabled':''}>${isOwner()?`<button class="danger small" data-remplayer="${p.id}">移除</button>`:''}</div>`).join('')}<div class="divider"></div>${isOwner()?`<h3>快速鍵設定</h3><p class="muted">最多 5 個，可填 0；留白的欄位會略過。</p><div class="quickSettingGrid">${quickSettingInputs()}</div><div class="divider"></div><div class="playerEdit"><input id="newPlayer" placeholder="新增玩家暱稱"><input id="newStart" type="number" inputmode="numeric" value="0"></div><div class="grid"><button data-act="savePlayers">儲存</button><button class="secondary" data-act="closeModal">關閉</button></div><div class="divider"></div><button class="danger resetScores" data-act="resetScores">清空全部計分</button>`:`<button class="secondary" style="width:100%" data-act="closeModal">關閉</button>`}</div></div>`; },
+  players(){ const r=state.room; return `<div class="modal"><div class="sheet"><h2>玩家管理</h2>${!isOwner()?'<p class="muted">只有房主可以修改玩家。</p>':'<p class="muted">房主可修改名稱、起始分數或移除玩家。</p>'}${r.players.map(p=>`<div class="playerEdit removeGrid"><input data-name="${p.id}" value="${esc(p.name)}" ${!isOwner()?'disabled':''}><input data-start="${p.id}" type="number" inputmode="numeric" value="${p.startScore||0}" ${!isOwner()?'disabled':''}>${isOwner()?`<button class="danger small" data-remplayer="${p.id}">移除</button>`:''}</div>`).join('')}<div class="divider"></div>${isOwner()?`<h3>快速鍵設定</h3><p class="muted">最多 5 個，可填 0；留白的欄位會略過。</p><div class="quickSettingGrid">${quickSettingInputs()}</div><div class="divider"></div><div class="playerEdit"><input id="newPlayer" placeholder="新增玩家暱稱"><input id="newStart" type="number" inputmode="numeric" value="0"></div><div class="grid"><button data-act="savePlayers">儲存</button><button class="secondary" data-act="closeModal">關閉</button></div>`:`<button class="secondary" style="width:100%" data-act="closeModal">關閉</button>`}</div></div>`; },
   history(){ const r=state.room; return `<div class="modal"><div class="sheet"><div class="sheetHead"><h2>歷史紀錄</h2><button class="secondary closeX" data-act="closeModal">×</button></div>${r.records.length?[...r.records].reverse().map((rec,i)=>`<div class="historyItem"><div class="histTop"><span>第 ${r.records.length-i} 筆｜${time(rec.createdAtMs)}</span><div>${isOwner()?`<button class="secondary small" data-editrec="${rec.id}">修改</button><button class="danger small" data-delrec="${rec.id}">刪除</button>`:''}</div></div><div class="changes">${(rec.items||[]).map(it=>`${esc(r.players.find(p=>p.id===it.playerId)?.name||'玩家')} ${fmt(it.points)}`).join('　')}</div>${rec.note?`<div class="sub">${esc(rec.note)}</div>`:''}</div>`).join(''):'<p class="muted">尚無紀錄</p>'}<button class="secondary" style="width:100%" data-act="closeModal">關閉</button></div></div>`; },
   editRecord(){
     const edit=state.recordEdit;
@@ -464,7 +482,6 @@ async function act(a){
     if(a==='clearJoinSelect'){ clearJoinSelection(); render(); }
     if(a==='closeRoom') await closeRoom();
     if(a==='clearRoomRecords') await clearRoomRecords();
-    if(a==='resetScores') await clearRoomRecords(true);
     if(a==='toggleAutoBalance') await toggleAutoBalance();
     if(a==='submitQuick') openScoreConfirmation(currentQuickItems());
     if(a==='confirmScore') await submitRecord();
@@ -532,31 +549,25 @@ async function createRoom(){
     if(new Set(names).size!==names.length) return toast('玩家暱稱不可重複');
     if(!Number.isFinite(start)) return toast('請確認起始分數格式');
     setLoading('建立房間中');
-    const c=await genRoomCode();
     const ownerPlayerId = uid();
     const createdAtMs=Date.now();
     const room={
-      code:c, name:state.createRoomName.trim()||randomRoomName(), version:VERSION,
+      name:state.createRoomName.trim()||randomRoomName(), version:VERSION,
       zeroCheck:state.createZero, ownerDeviceId:deviceId, ownerPlayerId, ownerName:names[0],
       defaultStart:start, quickValues:DEFAULT_QUICK_VALUES, autoBalance:true, closed:false,
       createdAt:serverTimestamp(), createdAtMs, ...roomActivity()
     };
     const players=names.map((name,order)=>({
-      ref:doc(playersRef(c),order===0?ownerPlayerId:uid()),
-      data:{name,startScore:start,order,joinedAt:serverTimestamp(),joinedAtMs:createdAtMs+order}
+      id:order===0?ownerPlayerId:uid(), name, startScore:start, order,
+      joinedAt:serverTimestamp(), joinedAtMs:createdAtMs+order
     }));
-    await runTransaction(db,async transaction=>{
-      const existing=await transaction.get(roomRef(c));
-      if(existing.exists()) throw new Error('房號已被使用，請再試一次');
-      transaction.set(roomRef(c),room);
-      players.forEach(p=>transaction.set(p.ref,p.data));
-    });
+    const created=await saveNewRoom(room,players);
     localStorage.setItem(LAST_NICKNAME_KEY,names[0]);
     localStorage.setItem(LAST_PLAYER_NAMES_KEY,JSON.stringify(names));
     state.joinName=names[0];
-    localStorage.setItem(playerKey(c,names[0]), ownerPlayerId);
+    localStorage.setItem(playerKey(created.code,names[0]), ownerPlayerId);
     state.quickDraft={}; state.quickTouched={}; state.screen='room'; state.modal=null;
-    await subscribeRoom(c,room);
+    await subscribeRoom(created.code,created,players);
   } finally { state.busy=false; setLoading(''); }
 }
 async function joinRoom(){
@@ -713,29 +724,19 @@ async function removePlayer(id){
   await deleteDoc(doc(db,'rooms',state.room.code,'players',id));
   toast('已移除玩家');
 }
-async function clearRoomRecords(resetStart=false){
+async function clearRoomRecords(){
   if(!isOwner()) return toast('只有房主可以清除本局');
-  const message=resetStart?'確定清空全部計分？玩家名稱會保留，起始分數和歷史紀錄都會歸零。':'確定清除本局計分與歷史紀錄？玩家會保留。';
-  if(state.busy || !confirm(message)) return;
+  if(state.busy || !confirm('確定清除本局計分與歷史紀錄？玩家會保留。')) return;
   const code=state.room.code;
   const generation=uid();
   state.busy=true;
-  setLoading(resetStart?'清空全部計分中':'清除本局中');
+  setLoading('清除本局中');
   try{
     const ref=roomRef(code);
     const previous=await runTransaction(db,async transaction=>{
       const room=(await transaction.get(ref)).data();
       if(room?.ownerDeviceId!==deviceId) throw new Error('只有房主可以清除計分');
-      const reset={scoreGeneration:generation,...roomActivity()};
-      if(resetStart){
-        reset.startGeneration=generation;
-        reset.defaultStart=0;
-        const players=await getDocs(playersRef(code));
-        if(players.size<=450){
-          players.forEach(player=>transaction.update(player.ref,{startScore:0,startGeneration:generation}));
-        }
-      }
-      transaction.update(ref,reset);
+      transaction.update(ref,{scoreGeneration:generation,...roomActivity()});
       return room.scoreGeneration||'';
     });
     // 切換記分世代後才刪舊紀錄，避免清空時刪到別人剛提交的新分數。
@@ -749,7 +750,7 @@ async function clearRoomRecords(resetStart=false){
     }catch(e){ console.warn('無法刪除已清空的舊紀錄',e); }
     state.quickDraft={}; state.quickTouched={};
     state.modal=null;
-    toast(resetStart?'全部計分已清空':'本局已清除','success');
+    toast('本局已清除','success');
   } finally { state.busy=false; setLoading(''); }
 }
 

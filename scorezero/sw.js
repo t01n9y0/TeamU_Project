@@ -1,5 +1,5 @@
-const CACHE_NAME = 'scorezero-beta13-portrait';
-const FILES = ['./','./index.html','./style.css?v=beta13-portrait','./app.js?v=beta13-portrait','./manifest.json?v=beta13','./icon.png','./icon.png?v=beta13','./tribute.webp?v=2'];
+const CACHE_NAME = 'scorezero-beta13-room-fix';
+const FILES = ['./','./index.html','./style.css?v=beta13-room-fix','./app.js?v=beta13-room-fix','./manifest.json?v=beta13','./icon.png','./icon.png?v=beta13','./tribute.webp?v=2'];
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES)));
