@@ -1,18 +1,21 @@
-const CACHE_NAME = 'scorezero-beta12-20260618';
-const FILES = ['./','./index.html?v=beta12','./style.css?v=beta12','./app.js?v=beta12','./manifest.json?v=beta12','./icon.png'];
+const CACHE_NAME = 'scorezero-beta13';
+const FILES = ['./','./index.html','./style.css?v=beta13','./app.js?v=beta13','./manifest.json?v=beta13','./icon.png','./icon.png?v=beta13','./tribute.webp'];
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES).catch(() => c.addAll(FILES.filter(f => f !== './icon.png')))));
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(FILES)));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))));
-  self.clients.claim();
+  e.waitUntil(caches.keys()
+    .then(keys=>Promise.all(keys.filter(k=>k.startsWith('scorezero-') && k!==CACHE_NAME).map(k=>caches.delete(k))))
+    .then(()=>self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
-  if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request).then(res => {
-    const copy = res.clone();
-    caches.open(CACHE_NAME).then(c => c.put(e.request, copy)).catch(()=>{});
-    return res;
-  }).catch(() => caches.match(e.request)));
+  const {request}=e;
+  if(request.method!=='GET' || !request.url.startsWith(self.registration.scope)) return;
+  const url=new URL(request.url);
+  if(request.mode==='navigate'){
+    e.respondWith(fetch(request).catch(()=>caches.match(new URL('./index.html',self.registration.scope))));
+  } else if(FILES.some(file=>new URL(file,self.registration.scope).href===url.href)){
+    e.respondWith(caches.match(request).then(cached=>cached||fetch(request)));
+  }
 });
