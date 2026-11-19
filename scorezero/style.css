@@ -34,3 +34,139 @@ html,body{min-height:100%;overscroll-behavior:none;background:#0f172a}body{touch
 [data-score-value]{display:inline-block;font-variant-numeric:tabular-nums;transform-origin:center}
 .scoreSaved{border-color:#22c55e}
 button:disabled{opacity:.6;cursor:default}
+
+.crownTrigger {
+  cursor: pointer;
+  min-height: 28px;
+  box-shadow: none;
+}
+.niuOverlay {
+  --niu-line: #425572;
+  --niu-muted: #becbdf;
+  --niu-gold: #f7cf79;
+  color-scheme: dark;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  overflow: auto;
+  padding: 18px;
+  background: #050a12db;
+  color: #eef4ff;
+  overscroll-behavior: contain;
+}
+.niuOverlay .dialog {
+  width: min(100%, 960px);
+  margin: auto;
+  padding: 24px;
+  border: 1px solid var(--niu-line);
+  border-radius: 20px;
+  background: #182237;
+  box-shadow: 0 18px 60px #0008;
+}
+.niuOverlay :is(.top, .row, .bottom) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.niuOverlay .top {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--niu-line);
+  margin-bottom: 16px;
+}
+.niuOverlay .top button { padding: 6px 10px; font-size: 14px; }
+.niuOverlay :is(h2, h3, p) { margin: 0; }
+.niuOverlay h2 { font-size: 24px; }
+.niuOverlay h3 { font-size: 17px; }
+.niuOverlay :is(.muted, .notice, .tag, label, details, .statusbar) { color: var(--niu-muted); }
+.niuOverlay .notice { padding: 12px 0; }
+.niuOverlay .tag { font-size: 13px; white-space: nowrap; }
+.niuOverlay .small { font-size: 14px; }
+.niuOverlay :is(button, input, select) { font: inherit; }
+.niuOverlay button { border-radius: 10px; font-weight: 700; }
+.niuOverlay button:disabled { opacity: .45; }
+.niuOverlay button.alt, .niuOverlay :is(input, select) {
+  color: #eef4ff;
+  background: #26364f;
+  border: 1px solid var(--niu-line);
+  border-radius: 9px;
+}
+.niuOverlay button.gold { color: #352817; background: var(--niu-gold); }
+.niuOverlay :is(input, select) { width: 100%; min-width: 0; padding: 8px; }
+.niuOverlay label { display: block; font-size: 14px; }
+.niuOverlay label > :is(input, select), .niuOverlay .rangeInput { margin-top: 4px; }
+.niuOverlay .rangeInput { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.niuOverlay .fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.niuOverlay .rulegrid {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 12px 0;
+}
+.niuOverlay .check { display: flex; align-items: center; gap: 8px; }
+.niuOverlay .check input { width: 20px; height: 20px; margin: 0; }
+.niuOverlay .table { background: #17373b; padding: 16px; border: 1px solid #44676a; border-radius: 16px; }
+.niuOverlay .statusbar { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 14px; }
+.niuOverlay .hands { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.niuOverlay .hand { border: 1px solid #42616a; background: #142730; border-radius: 14px; padding: 12px; min-width: 0; }
+.niuOverlay .hand.self { background: #204d80; border: 2px solid #9ddcff; box-shadow: 0 0 0 2px #58b8ff44; }
+.niuOverlay .hand.self .tag { background: #d0ecff; color: #123f69; padding: 2px 8px; border-radius: 12px; font-weight: 800; }
+.niuOverlay .hand.banker { border-color: var(--niu-gold); }
+.niuOverlay .handtype { color: var(--niu-gold); font-weight: 700; }
+.niuOverlay .hand h3 { overflow-wrap: anywhere; }
+.niuOverlay .cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 12px 0; }
+.niuOverlay .playingcard {
+  padding: 0;
+  min-width: 0;
+  border: 2px solid #e9e6da;
+  border-radius: 7px;
+  aspect-ratio: .72;
+  background: #faf8f0;
+  color: #182533;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+  flex-direction: column;
+  font-family: Georgia, serif;
+}
+.niuOverlay .playingcard .rank { font-size: clamp(17px, 4vw, 27px); }
+.niuOverlay .playingcard .suit { font-size: clamp(20px, 5vw, 33px); }
+.niuOverlay .playingcard.back { background: repeating-linear-gradient(45deg,#244a6b 0 5px,#305a7d 5px 7px); color: #c0d6ed; border-color: #adc3db; }
+.niuOverlay .playingcard:disabled { opacity: 1; }
+.niuOverlay .red { color: #b92b3a; }
+.niuOverlay :is(.footer, .actions) { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.niuOverlay :is(.footer, .bottom, details) { margin-top: 16px; }
+.niuOverlay .summary { padding: 12px; background: #0f1b2c; border-radius: 10px; color: var(--niu-muted); margin-top: 12px; }
+.niuOverlay .settlerow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--niu-line);
+  overflow-wrap: anywhere;
+}
+.niuOverlay .settlerow > :not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.niuOverlay .settlementCards { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.niuOverlay .settlementCard { color: #182533; background: #faf8f0; padding: 2px 4px; border-radius: 4px; white-space: nowrap; font: 700 15px Georgia, serif; }
+.niuOverlay .settlementCard.red { color: #b92b3a; }
+.niuOverlay .delta { font-weight: 800; }
+.niuOverlay .pos { color: #86e4ba; }
+.niuOverlay .neg { color: #ff9eab; }
+body:has(.niuOverlay) .toast { z-index: 55; }
+@media(max-width: 650px) {
+  .niuOverlay { padding: 8px; }
+  .niuOverlay .dialog { padding: 12px; }
+  .niuOverlay .fields { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .niuOverlay .hands { grid-template-columns: 1fr; }
+  .niuOverlay .table { padding: 10px; }
+  .niuOverlay .bottom { align-items: flex-start; flex-direction: column; }
+  .niuOverlay .settlerow { font-size: 14px; }
+}

@@ -1,6 +1,8 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
 import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp, query, orderBy, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
 
+import { newGame, playGame, gameView } from './niuniu.js?v=beta14';
+
 const firebaseConfig = {
   apiKey: "AIzaSyBy1ViD4JUwfYCttJPB6iLvGNk3JOh5pwc",
   authDomain: "scorezero-2e170.firebaseapp.com",
@@ -13,8 +15,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta13';
-const ROOM_VERSIONS = [VERSION, 'ScoreZero beta12'];
+const VERSION = 'ScoreZero beta14';
+const ROOM_VERSIONS = [VERSION, 'ScoreZero beta13', 'ScoreZero beta12'];
 const DEVICE_KEY = 'scorezero_device_id_beta12';
 const LAST_ROOM_KEY = 'scorezero_last_room_beta12';
 const LAST_NICKNAME_KEY = 'scorezero_last_nickname';
@@ -172,6 +174,7 @@ async function subscribeRoom(code, initialData={}, initialPlayers=[]){
 
 function leaveRoom(){
   clearSubs();
+  crownCount=0; clearTimeout(crownTimer);
   Object.assign(state,{screen:'home',room:null,modal:null,pendingRecord:null,recordEdit:null,scoreAnimation:null});
 }
 
@@ -180,11 +183,18 @@ function render(){
   const focusedInput=document.activeElement?.closest?.('#app input[id]');
   const selection=focusedInput && [focusedInput.id,focusedInput.selectionStart,focusedInput.selectionEnd];
   const sheetScroll=$('.modal')?.dataset.modal===state.modal ? $('.sheet')?.scrollTop : 0;
+  const game=state.screen==='room' ? state.room?.niuniu : null;
+  const oldOverlay=$('.niuOverlay');
+  const keepOverlay=!!game && oldOverlay?.dataset.niuSession===game.session && oldOverlay?.dataset.niuStage===game.stage;
+  const niuScroll=keepOverlay?oldOverlay.scrollTop:0;
+  const wrap=game?' inert':'';
   document.body.classList.toggle('light',state.light);
-  $('#app').innerHTML = `<div class="wrap">${views[state.screen]()}${state.toast?`<div class="toast ${state.toastType||''}" role="status">${esc(state.toast)}</div>`:''}</div>${state.modal?modals[state.modal]():''}${state.loading?loadingView(state.loading):''}`;
+  $('#app').innerHTML = `<div class="wrap"${wrap}>${views[state.screen]()}</div>${state.toast?`<div class="toast ${state.toastType||''}" role="status">${esc(state.toast)}</div>`:''}${!game&&state.modal?modals[state.modal]():''}${game?gameView(game,niuPlayerId(state.room),isOwner(),esc,fmt):''}${state.loading?loadingView(state.loading):''}`;
   const modal=$('.modal');
   if(modal) modal.dataset.modal=state.modal;
   bind();
+  $$('[data-niu-action]').forEach(button=>button.onclick=()=>niuAction(button.dataset.niuAction));
+  if(game) bindNiuniu(keepOverlay?oldOverlay:null,niuScroll);
   if(selection){
     const input=document.getElementById(selection[0]);
     input?.focus({preventScroll:true});
@@ -220,12 +230,12 @@ function animateScores(){
 }
 
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><b>功能小序</b><figure class="tribute"><img src="tribute.webp?v=2" alt="PTT 看板字元風的光頭哥哥畫像" width="384" height="384"><figcaption>致敬光頭哥哥林俊傑</figcaption></figure></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><figure class="tribute"><img src="tribute.webp?v=2" alt="PTT 看板字元風的光頭哥哥畫像" width="384" height="384"><figcaption>致敬光頭哥哥林俊傑</figcaption></figure></div>`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
     const sum = total();
-    const ownerBadge = isOwner()?'<span class="pill">👑 房主</span>':'<span class="pill">玩家</span>';
+    const ownerBadge = isOwner()?'<button class="pill crownTrigger" data-niu-action="crown" aria-label="房主皇冠">👑 房主</button>':'<span class="pill">玩家</span>';
     return `<div class="topbar"><div><button class="roomTitleBtn" ${isOwner()?'data-act="editRoomName" title="點擊修改房名"':''}>${esc(r.name||'記分房')}${isOwner()?' <span>✏️</span>':''}</button><div class="sub">房號 ${r.code}　${ownerBadge}</div></div><button class="secondary small" data-act="home">返回大廳</button></div>
     <div class="card scoreCard"><div class="scoreHead"><div class="scoreTitleLine"><h3>目前分數</h3><div class="scoreSumMini ${sum===0?'sumGood':'sumBad'}">總和 <span data-score-value="sum">${fmt(sum)}</span></div></div><span class="pill">${r.players.length} 位玩家</span></div>${[...r.players].sort((a,b)=>b.score-a.score).map(p=>`<div class="player"><div class="pname">${esc(p.name)}<div class="sub">起始 ${p.startScore||0}</div></div><div class="pscore ${scoreClass(p.score)}" data-score-value="${esc(p.id)}">${fmt(p.score)}</div></div>`).join('')}</div>
     <div class="card"><div class="quickHead"><h3>快速計分</h3>${isOwner()?`<button class="secondary small" data-act="toggleAutoBalance" aria-pressed="${autoBalanceOn()}">自動計算：${autoBalanceOn()?'開啟':'關閉'}</button>`:''}</div><div class="quickRows">${r.players.map(p=>quickRow(p)).join('')}</div><button style="width:100%" data-act="submitQuick">提交</button><button style="width:100%;margin-top:8px" class="secondary" data-act="clearQuick">清空快速計分</button></div>
@@ -408,6 +418,119 @@ function bind(){
   bindJoinFields();
   $$('[data-roompick]').forEach(b=>b.onclick=()=>selectLobbyRoom(b.dataset.roompick));
 }
+let crownCount=0, crownTimer, niuPending=false;
+const niuSeatKey=code=>`scorezero_niuniu_seat_${code}`;
+
+function niuPlayerId(room){
+  if(room.ownerDeviceId===deviceId) return room.ownerPlayerId;
+  const nickname=localStorage.getItem(LAST_NICKNAME_KEY);
+  const id=localStorage.getItem(niuSeatKey(room.code))||localStorage.getItem(playerKey(room.code,nickname));
+  return id===room.ownerPlayerId ? null : id;
+}
+
+async function niuAction(type,params={}){
+  if(type==='lobby'){ leaveRoom(); render(); return; }
+  const active=state.room;
+  if(!active||niuPending) return;
+  if(type==='crown'){
+    if(!isOwner()||active.niuniu) return;
+    clearTimeout(crownTimer);
+    crownCount++;
+    if(crownCount<6){
+      crownTimer=setTimeout(()=>{crownCount=0;},2500);
+      return;
+    }
+    crownCount=0;
+  }
+  const {code,niuniu:expected}=active;
+  const ref=roomRef(code);
+  const actor=niuPlayerId(active);
+  niuPending=true;
+  try{
+    await runTransaction(db,async transaction=>{
+      const room=(await transaction.get(ref)).data();
+      if(!room||!roomIsActive(room)) throw new Error('房間已關閉或逾期');
+      const owner=room.ownerDeviceId===deviceId;
+      const current=room.niuniu;
+      if(type==='crown'){
+        if(!owner||current) return;
+        const players=(await getDocs(query(playersRef(code),orderBy('order','asc')))).docs
+          .map(d=>({id:d.id,...d.data()}));
+        const niuniu=newGame(players,room.ownerPlayerId,uid()+Date.now().toString(36));
+        transaction.update(ref,{niuniu,...roomActivity()});
+        return;
+      }
+      if(!current||!expected||current.session!==expected.session||
+        current.round!==expected.round||current.stage!==expected.stage) return;
+      let scores;
+      if(type==='settle'){
+        if(actor!==current.banker) throw new Error('只有莊家可以結算');
+        const [players,records]=await Promise.all([
+          Promise.all(current.players.map(p=>transaction.get(doc(playersRef(code),p.id)))),
+          getDocs(query(recordsRef(code),orderBy('createdAtMs','asc')))
+        ]);
+        if(players.some(p=>!p.exists())) throw new Error('玩家名單已變更，請結束本局後重新開啟妞妞');
+        const totals={...room,rawPlayers:players.map(p=>({id:p.id,...p.data()})),allRecords:records.docs.map(d=>d.data())};
+        calcScores(totals);
+        scores=Object.fromEntries(totals.players.map(p=>[p.id,p.score]));
+      }
+      const niuniu=playGame(current,{type,...params},{actor,owner,scores});
+      if(type==='settle'){
+        const record=doc(recordsRef(code),`niuniu-${current.session}-${current.round}`);
+        transaction.set(record,{
+          items:Object.entries(niuniu.settled.deltas).map(([playerId,points])=>({playerId,points})),
+          note:`妞妞第 ${current.round} 局｜底注 ${current.settings.base} 點`,
+          createdByDeviceId:deviceId,createdAt:serverTimestamp(),createdAtMs:Date.now(),
+          scoreGeneration:room.scoreGeneration||''
+        });
+      }
+      transaction.update(ref,{niuniu,...roomActivity()});
+    });
+  }catch(error){
+    console.error(error);
+    if(state.room?.code===code) toast(error.code?'妞妞同步失敗，請再試一次':(error.message||'妞妞同步失敗'));
+  }finally{ niuPending=false; }
+}
+
+function bindNiuniu(previous,scroll){
+  $('.niuOverlay').scrollTop=scroll;
+  $$('[data-niu-card]').forEach(button=>button.onclick=()=>{
+    const [playerId,index]=button.dataset.niuCard.split(':');
+    niuAction('reveal',{playerId,index:Number(index)});
+  });
+  $$('[data-niu-reveal]').forEach(button=>button.onclick=()=>niuAction('reveal',{playerId:button.dataset.niuReveal}));
+  const setup=$('#niuSettings');
+  const next=$('#niuNext');
+  const game=state.room.niuniu;
+  if(setup){
+    for(const key of ['bankerMode','fixedBanker','deckMode']) setup.elements[key].value=game.settings[key];
+    setup.onsubmit=event=>{
+      event.preventDefault();
+      const f=new FormData(setup);
+      const special=Object.keys(game.settings.special);
+      niuAction('configure',{settings:{
+        bankerMode:f.get('bankerMode'),fixedBanker:f.get('fixedBanker'),deckMode:f.get('deckMode'),
+        base:Number(f.get('base')),lowMax:Number(f.get('highFrom'))-1,
+        special:Object.fromEntries(special.map(k=>[k,f.has(k)])),
+        multipliers:Object.fromEntries([...special,'high','niu'].map(k=>[k,Number(f.get('m_'+k))]))
+      }});
+    };
+  }
+  if(next) next.onsubmit=event=>{
+    event.preventDefault();
+    const f=new FormData(next);
+    niuAction('nextRound',{banker:f.get('nextBanker'),base:Number(f.get('base'))});
+  };
+  const form=setup||next;
+  const saved=form&&previous?.querySelector('form');
+  if(saved) for(const input of form.elements){
+    const old=input.name&&saved.elements.namedItem(input.name);
+    if(!old) continue;
+    if(input.type==='checkbox') input.checked=old.checked;
+    else input.value=old.value;
+  }
+}
+
 function syncQuickInputs(changedId){
   $$('[data-qplayer]').forEach(i=>{
     if(document.activeElement!==i || i.dataset.qplayer===changedId) i.value=state.quickDraft[i.dataset.qplayer]??'';
@@ -607,6 +730,7 @@ async function joinRoom(){
     if(result.error) return toast(result.error);
     localStorage.setItem(LAST_NICKNAME_KEY,name);
     localStorage.setItem(playerKey(c,name),result.playerId);
+    localStorage.setItem(niuSeatKey(c),result.playerId);
     state.joinName=name;
     state.quickDraft={}; state.quickTouched={}; state.screen='room'; state.modal=null;
     await subscribeRoom(c,result.room);
@@ -736,7 +860,7 @@ async function clearRoomRecords(){
     const previous=await runTransaction(db,async transaction=>{
       const room=(await transaction.get(ref)).data();
       if(room?.ownerDeviceId!==deviceId) throw new Error('只有房主可以清除計分');
-      transaction.update(ref,{scoreGeneration:generation,...roomActivity()});
+      transaction.update(ref,{scoreGeneration:generation,niuniu:null,...roomActivity()});
       return room.scoreGeneration||'';
     });
     // 切換記分世代後才刪舊紀錄，避免清空時刪到別人剛提交的新分數。
