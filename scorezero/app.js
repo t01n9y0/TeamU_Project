@@ -193,6 +193,7 @@ function render(){
   const modal=$('.modal');
   if(modal) modal.dataset.modal=state.modal;
   bind();
+  bindEntranceArtwork();
   $$('[data-niu-action]').forEach(button=>button.onclick=()=>niuAction(button.dataset.niuAction));
   if(game) bindNiuniu(keepOverlay?oldOverlay:null,niuScroll);
   if(selection){
@@ -229,8 +230,58 @@ function animateScores(){
   draw(performance.now());
 }
 
+const entranceArtwork = [
+  {src:'tribute.webp?v=2', alt:'PTT 看板字元風的光頭哥哥畫像', width:384, height:384, title:'光頭哥哥', caption:'致敬光頭哥哥林俊傑'},
+  {src:'poker-portrait.webp', alt:'PTT 看板字元風的紅衣女子持牌畫像', width:768, height:541, title:'紅衣女子', caption:''}
+];
+const entranceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let entranceSlide = 1;
+let entrancePaused = entranceMotion.matches;
+let entranceTimer;
+function entranceArtworkView(){
+  return `<section class="intro classic entranceArtwork" aria-label="入口看板輪播">
+    <div class="entranceArtworkStage">${entranceArtwork.map((art,i)=>`<img data-entrance-image="${i}" src="${art.src}" alt="${art.alt}" width="${art.width}" height="${art.height}" ${i===entranceSlide?'':'hidden'}>`).join('')}</div>
+    <div class="entranceArtworkCaption">${entranceArtwork.map((art,i)=>`<span data-entrance-caption="${i}" ${i===entranceSlide?'':'hidden'}>${art.caption}</span>`).join('')}</div>
+    <div class="entranceArtworkControls">
+      ${entranceArtwork.map((art,i)=>`<button class="secondary small" type="button" data-entrance-slide="${i}" aria-label="顯示${art.title}看板" aria-pressed="${i===entranceSlide}">${i+1}</button>`).join('')}
+      <button class="secondary small" type="button" id="entrancePlayback">${entrancePaused?'播放':'暫停'}</button>
+    </div>
+  </section>`;
+}
+function showEntranceSlide(index){
+  entranceSlide = index;
+  $$('[data-entrance-image]').forEach(image=>{image.hidden=Number(image.dataset.entranceImage)!==index;});
+  $$('[data-entrance-caption]').forEach(caption=>{caption.hidden=Number(caption.dataset.entranceCaption)!==index;});
+  $$('[data-entrance-slide]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.entranceSlide)===index)));
+}
+function scheduleEntranceArtwork(){
+  clearTimeout(entranceTimer);
+  if(state.screen!=='home'||state.modal||state.loading||document.hidden||entrancePaused) return;
+  entranceTimer=setTimeout(()=>{
+    showEntranceSlide((entranceSlide+1)%entranceArtwork.length);
+    scheduleEntranceArtwork();
+  },6500);
+}
+function bindEntranceArtwork(){
+  const playback=$('#entrancePlayback');
+  if(playback){
+    const updatePlayback=()=>{
+      playback.textContent=entrancePaused?'播放':'暫停';
+      scheduleEntranceArtwork();
+    };
+    playback.onclick=()=>{entrancePaused=!entrancePaused;updatePlayback();};
+    $$('[data-entrance-slide]').forEach(button=>button.onclick=()=>{
+      entrancePaused=true;
+      showEntranceSlide(Number(button.dataset.entranceSlide));
+      updatePlayback();
+    });
+  }
+  scheduleEntranceArtwork();
+}
+document.addEventListener('visibilitychange',scheduleEntranceArtwork);
+
 const views = {
-  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div><div class="intro classic"><figure class="tribute"><img src="tribute.webp?v=2" alt="PTT 看板字元風的光頭哥哥畫像" width="384" height="384"><figcaption>致敬光頭哥哥林俊傑</figcaption></figure></div>`; },
+  home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div>${entranceArtworkView()}`; },
   room(){
     const r = state.room;
     if(!r) return `<div class="hero"><div class="brand">載入中...</div></div>`;
