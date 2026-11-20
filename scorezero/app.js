@@ -1,7 +1,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js';
 import { getFirestore, doc, getDoc, getDocs, updateDoc, deleteDoc, collection, onSnapshot, serverTimestamp, query, orderBy, writeBatch, runTransaction } from 'https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js';
 
-import { newGame, playGame, gameView } from './niuniu.js?v=beta14';
+import { newGame, playGame, gameView } from './niuniu.js?v=beta15';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBy1ViD4JUwfYCttJPB6iLvGNk3JOh5pwc",
@@ -15,8 +15,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const VERSION = 'ScoreZero beta14';
-const ROOM_VERSIONS = [VERSION, 'ScoreZero beta13', 'ScoreZero beta12'];
+const VERSION = 'ScoreZero beta15';
+const ROOM_VERSIONS = [VERSION, 'ScoreZero beta14', 'ScoreZero beta13', 'ScoreZero beta12'];
 const DEVICE_KEY = 'scorezero_device_id_beta12';
 const LAST_ROOM_KEY = 'scorezero_last_room_beta12';
 const LAST_NICKNAME_KEY = 'scorezero_last_nickname';

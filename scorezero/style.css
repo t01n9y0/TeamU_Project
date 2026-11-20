@@ -117,6 +117,39 @@ button:disabled{opacity:.6;cursor:default}
 .niuOverlay .hand.self .tag { background: #d0ecff; color: #123f69; padding: 2px 8px; border-radius: 12px; font-weight: 800; }
 .niuOverlay .hand.banker { border-color: var(--niu-gold); }
 .niuOverlay .handtype { color: var(--niu-gold); font-weight: 700; }
+.niuOverlay .handResult {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.niuOverlay .handResult .handtype { font-size: clamp(17px, 4vw, 22px); }
+.niuOverlay .niuHighCard {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #fff6de;
+  color: #17202a;
+  white-space: nowrap;
+}
+.niuOverlay .niuOutcome {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 2px 10px;
+  min-width: 2em;
+  font-size: clamp(20px, 5vw, 27px);
+  font-weight: 900;
+}
+.niuOverlay .niuOutcome.win,
+.niuOverlay .niuOutcome.split .win { background: #a3f2c7; color: #103b28; }
+.niuOverlay .niuOutcome.loss,
+.niuOverlay .niuOutcome.split .loss { background: #ffb0be; color: #651526; }
+.niuOverlay .niuOutcome.split { padding: 0; overflow: hidden; font-size: clamp(17px, 4vw, 22px); }
+.niuOverlay .niuOutcome.split span { padding: 2px 7px; }
+.niuOverlay .settlement .handResult { margin-block: 4px; }
+.niuOverlay .settlement .handResult :is(.handtype,.niuOutcome) { font-size: clamp(15px, 4vw, 20px); }
 .niuOverlay .hand h3 { overflow-wrap: anywhere; }
 .niuOverlay .cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; margin: 12px 0; }
 .niuOverlay .playingcard {

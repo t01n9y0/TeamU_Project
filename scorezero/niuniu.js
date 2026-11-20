@@ -32,9 +32,11 @@ function evaluate(cards,settings=defaultRules){
   const lowMax=settings.lowMax??defaultRules.lowMax;
   const raised=niu>lowMax && niu<10;
   const multiplier=niu===10?settings.multipliers.niu:raised?settings.multipliers.high:1;
-  return {name:niu===10?'妞妞':niu<0?'無妞':niu+(raised?'升':'點'),rank:Math.max(niu,0),multiplier,high:highest(cards),combo};
+  return {name:niu===10?'妞妞':niu<0?'無點':niu+(raised?'升':'點'),rank:Math.max(niu,0),multiplier,high:highest(cards),combo};
 }
-function compare(a,b){return a.rank-b.rank||a.high-b.high;}
+function beatsBanker(hand,bankerHand){
+  return hand.rank===bankerHand.rank ? hand.high>bankerHand.high : hand.rank>bankerHand.rank;
+}
 
 export function newGame(players,ownerId,session){
   if(players.length<2 || players.length>10) throw new Error('妞妞需 2 至 10 位玩家');
@@ -99,7 +101,7 @@ export function playGame(current,action,{actor,owner,scores}){
     for(const p of game.players){
       if(p.id===game.banker) continue;
       const hand=evaluate(game.hands[p.id].cards,settings);
-      const wins=compare(hand,bankerHand)>0;
+      const wins=beatsBanker(hand,bankerHand);
       deltas[p.id]=settings.base*(wins?hand.multiplier:-bankerHand.multiplier);
       deltas[game.banker]-=deltas[p.id];
     }
@@ -137,19 +139,60 @@ export function gameView(state,me,isOwner,esc,fmt){
   const banker=()=>me===state.banker && !!me;
   const pname=id=>state.players.find(p=>p.id===id)?.name||'玩家';
   const allRevealed=()=>state.players.every(p=>state.hands[p.id]?.revealed.every(Boolean));
+  const evaluations=new Map();
+  for(const {id} of state.players){
+    const hand=state.hands[id];
+    if(hand?.revealed.every(Boolean)) evaluations.set(id,evaluate(hand.cards,state.settings));
+  }
+  const bankerHand=evaluations.get(state.banker);
+  const results=new Map();
+  if(bankerHand){
+    for(const [id,hand] of evaluations){
+      if(id!==state.banker) results.set(id,beatsBanker(hand,bankerHand));
+    }
+  }
+  function resultHtml(id){
+    if(id!==state.banker && results.has(id)){
+      return results.get(id)
+        ? '<strong class="niuOutcome win">勝</strong>'
+        : '<strong class="niuOutcome loss">敗</strong>';
+    }
+    if(id===state.banker && results.size===state.players.length-1){
+      const losses=[...results.values()].filter(Boolean).length;
+      const wins=results.size-losses;
+      if(!losses) return '<strong class="niuOutcome win">勝</strong>';
+      if(!wins) return '<strong class="niuOutcome loss">敗</strong>';
+      return `<strong class="niuOutcome split"><span class="win">${wins}勝</span><span class="loss">${losses}敗</span></strong>`;
+    }
+    return evaluations.has(id)?'<span class="muted small">待比牌</span>':'';
+  }
+  function handTypeHtml(hand){
+    if(!hand) return '<span class="handtype">等待開牌</span>';
+    if(hand.rank!==0) return `<span class="handtype">${hand.name}</span>`;
+    const suit=hand.high%4;
+    const rank=ranks[Math.floor(hand.high/4)];
+    return `<span class="handtype">無點 <strong class="niuHighCard ${suit===1||suit===2?'red':''}">${rank}${suits[suit]}</strong></span>`;
+  }
 function cardHtml(card,open,id,i){
   const allowed=state.stage==='reveal'&&(id===me||banker());
   const name=open?ranks[card.rank]+suits[card.suit]:'未開牌 '+(i+1);
   return '<button class="playingcard '+(open?([1,2].includes(card.suit)?'red':''):'back')+'" aria-label="'+name+'" data-niu-card="'+id+':'+i+'" '+(!allowed||open?'disabled':'')+'>'+(open?'<span class="rank">'+ranks[card.rank]+'</span><span class="suit">'+suits[card.suit]+'</span>':'♠')+'</button>';
 }
 function handHtml(p){
-  const h=state.hands[p.id],done=h.revealed.every(Boolean),evaluation=done?evaluate(h.cards,state.settings):null;
-  return '<section class="hand '+(p.id===state.banker?'banker ':'')+(me===p.id?'self':'')+'"><div class="row"><h3>'+esc(p.name)+(p.id===state.banker?' · 莊家':'')+'</h3><span class="tag">'+(me===p.id?'你的手牌':h.revealed.filter(Boolean).length+'/5 已開')+'</span></div><div class="cards">'+h.cards.map((c,i)=>cardHtml(c,h.revealed[i],p.id,i)).join('')+'</div><div class="row"><span class="handtype">'+(evaluation?evaluation.name:'等待開牌')+'</span>'+((me===p.id||banker())&&!done&&state.stage==='reveal'?'<button class="alt" data-niu-reveal="'+p.id+'">'+(me===p.id?'一鍵全開':'強制開牌')+'</button>':'')+'</div></section>';
+  const h=state.hands[p.id];
+  const evaluation=evaluations.get(p.id);
+  const revealButton=(me===p.id||banker())&&!evaluation&&state.stage==='reveal'
+    ? `<button class="alt" data-niu-reveal="${p.id}">${me===p.id?'一鍵全開':'強制開牌'}</button>` : '';
+  return `<section class="hand ${p.id===state.banker?'banker ':''}${me===p.id?'self':''}">
+    <div class="row"><h3>${esc(p.name)}${p.id===state.banker?' · 莊家':''}</h3><span class="tag">${me===p.id?'你的手牌':h.revealed.filter(Boolean).length+'/5 已開'}</span></div>
+    <div class="cards">${h.cards.map((card,i)=>cardHtml(card,h.revealed[i],p.id,i)).join('')}</div>
+    <div class="row handResult">${handTypeHtml(evaluation)}${resultHtml(p.id)}${revealButton}</div>
+  </section>`;
 }
 function settingsHtml(){
   return '<h2>妞妞玩法設定</h2><p class="muted" style="margin-top:8px">三張湊十、另兩張算妞點。同牌型依最大單張，再比花色。</p>'+
   (owner()?'<form id="niuSettings"><div class="fields"><label>莊家模式<select name="bankerMode"><option value="rotate">輪流當莊</option><option value="fixed">固定莊家</option></select></label><label>首局／固定莊家<select name="fixedBanker">'+state.players.map(p=>'<option value="'+p.id+'">'+esc(p.name)+'</option>').join('')+'</select></label><label>每局底注<input name="base" type="number" value="'+state.settings.base+'" min="1" max="100000" step="1" required></label><label>發牌方式<select name="deckMode"><option value="new">每局一副新牌</option><option value="shoe">同副牌用完重洗</option></select></label></div><h3>一般牌型與倍率</h3><div class="fields"><label>升 範圍<div class="rangeInput"><input aria-label="升 範圍" name="highFrom" type="number" min="1" max="9" step="1" value="'+(state.settings.lowMax+1)+'" required><span>～9</span></div></label><label>升 倍率<input name="m_high" type="number" min="1" max="100" step="1" value="'+state.settings.multipliers.high+'" required></label><label>妞 倍率<input name="m_niu" type="number" min="1" max="100" step="1" value="'+state.settings.multipliers.niu+'" required></label></div><h3 style="margin-top:20px">特殊牌型與倍率</h3><div class="rulegrid">'+Object.entries(specialNames).map(([key,name])=>'<label class="check"><input type="checkbox" name="'+key+'" '+(state.settings.special[key]?'checked':'')+'>'+name+'</label><label>倍率<input name="m_'+key+'" type="number" min="1" max="100" step="1" required value="'+state.settings.multipliers[key]+'"></label>').join('')+'</div><div class="summary">每位玩家對莊家結算額＝底注 × 勝方牌型倍率。底注 50 時，1 倍為 50、2 倍為 100。</div><div class="footer"><button class="alt" type="button" data-niu-action="cancelSetup">返回記分表</button><button class="gold">開始遊戲</button></div></form>':'<p class="notice">房主正在設定玩法。設定完成後，所有玩家會同步進入牌桌。</p>')+
-  '<details><summary>牌型與結算規則</summary><p>特殊牌型由大至小為同花順、鐵支、五公、順子，再比妞妞、9 至 1、無妞。「升」從設定的起始數字至 9，其他點數為「點」。點與無妞固定 1 倍。五公限五張 J、Q、K，順子包含 A2345 及 10JQKA。同級取五張內最大牌，K＞Q＞J＞10＞…＞A，黑桃＞紅心＞方塊＞梅花。每位玩家單獨與莊家比牌，依勝方牌型倍率乘以底注轉移分數。完全相同時由莊家勝。</p><p>倍率可在開局前修改。單副牌不足下一局所需張數時，會在發牌前整副重洗。</p></details>';
+  '<details><summary>牌型與結算規則</summary><p>特殊牌型由大至小為同花順、鐵支、五公、順子，再比妞妞、9 至 1、無點。「升」從設定的起始數字至 9，其他點數為「點」。點與無點固定 1 倍。五公限五張 J、Q、K，順子包含 A2345 及 10JQKA。同級取五張內最大牌，K＞Q＞J＞10＞…＞A，黑桃＞紅心＞方塊＞梅花。每位玩家單獨與莊家比牌，依勝方牌型倍率乘以底注轉移分數。完全相同時由莊家勝。</p><p>倍率可在開局前修改。單副牌不足下一局所需張數時，會在發牌前整副重洗。</p></details>';
 }
 function nextHtml(){
   return '<h2>準備下一局</h2><p class="notice">目前莊家為 '+esc(pname(state.banker))+'，目前底注 '+state.settings.base+' 點。</p>'+
@@ -157,7 +200,20 @@ function nextHtml(){
 }
 function settlementHtml(){
   const s=state.settled;
-  return '<h2>第 '+s.round+' 局結算</h2><p class="notice">莊家 '+esc(pname(s.banker))+' · 底注 '+s.base+' 點 · 分數已加入記分表</p><div class="settlement"><div class="settlerow muted small"><span>玩家／牌型</span><span>原分數</span><span>本局增減</span><span>目前分數</span></div>'+state.players.map(p=>'<div class="settlerow"><span><b>'+esc(p.name)+'</b><br><span class="muted small">'+evaluate(state.hands[p.id].cards,state.settings).name+'</span><div class="settlementCards" aria-label="'+esc(p.name)+' 的五張牌">'+state.hands[p.id].cards.map(c=>'<span class="settlementCard '+([1,2].includes(c.suit)?'red':'')+'">'+(c.rank===10?'T':ranks[c.rank])+'<small>'+suits[c.suit]+'</small></span>').join('')+'</div></span><span>'+fmt(s.before[p.id])+'</span><span class="delta '+(s.deltas[p.id]>=0?'pos':'neg')+'">'+fmt(s.deltas[p.id])+'</span><strong class="score">'+fmt(s.before[p.id]+s.deltas[p.id])+'</strong></div>').join('')+'</div><div class="summary">本局分數合計 '+Object.values(s.deltas).reduce((a,b)=>a+b,0)+'。每位玩家對莊家單獨比較，採勝方牌型倍率。</div><div class="footer">'+(banker()?'<button class="alt" data-niu-action="end">結束遊戲</button><button class="gold" data-niu-action="next">再來一局</button>':'<span class="muted">等待本局莊家選擇下一局或結束。</span>')+'</div>';
+  const rows=state.players.map(({id,name})=>{
+    const delta=s.deltas[id];
+    const cards=state.hands[id].cards.map(c=>
+      `<span class="settlementCard ${[1,2].includes(c.suit)?'red':''}">${c.rank===10?'T':ranks[c.rank]}<small>${suits[c.suit]}</small></span>`
+    ).join('');
+    return `<div class="settlerow">
+      <div><b>${esc(name)}</b><div class="handResult">${handTypeHtml(evaluations.get(id))}${resultHtml(id)}</div><div class="settlementCards" aria-label="${esc(name)} 的五張牌">${cards}</div></div>
+      <span>${fmt(s.before[id])}</span><span class="delta ${delta>=0?'pos':'neg'}">${fmt(delta)}</span><strong class="score">${fmt(s.before[id]+delta)}</strong>
+    </div>`;
+  }).join('');
+  return `<h2>第 ${s.round} 局結算</h2><p class="notice">莊家 ${esc(pname(s.banker))} · 底注 ${s.base} 點 · 分數已加入記分表</p>
+    <div class="settlement"><div class="settlerow muted small"><span>玩家／牌型</span><span>原分數</span><span>本局增減</span><span>目前分數</span></div>${rows}</div>
+    <div class="summary">本局分數合計 ${Object.values(s.deltas).reduce((a,b)=>a+b,0)}。每位玩家對莊家單獨比較，採勝方牌型倍率。</div>
+    <div class="footer">${banker()?'<button class="alt" data-niu-action="end">結束遊戲</button><button class="gold" data-niu-action="next">再來一局</button>':'<span class="muted">等待本局莊家選擇下一局或結束。</span>'}</div>`;
 }
 function gameHtml(){
   if(state.stage==='setup')return settingsHtml();
