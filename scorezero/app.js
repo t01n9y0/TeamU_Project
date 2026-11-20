@@ -232,53 +232,32 @@ function animateScores(){
 
 const entranceArtwork = [
   {src:'tribute.webp?v=2', alt:'PTT 看板字元風的光頭哥哥畫像', width:384, height:384, title:'光頭哥哥', caption:'致敬光頭哥哥林俊傑'},
-  {src:'poker-portrait.webp', alt:'PTT 看板字元風的紅衣女子持牌畫像', width:768, height:541, title:'紅衣女子', caption:''}
+  {src:'poker-portrait.webp', alt:'PTT 看板字元風的海棠小姐持牌畫像', width:768, height:541, title:'海棠小姐', caption:''}
 ];
-const entranceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-let entranceSlide = 1;
-let entrancePaused = entranceMotion.matches;
-let entranceTimer;
+function randomEntranceSlide(exclude){
+  const candidates=entranceArtwork.map((_,i)=>i).filter(i=>i!==exclude);
+  return candidates[Math.floor(Math.random()*candidates.length)];
+}
+let entranceSlide = randomEntranceSlide();
+function entranceArtworkLabel(){
+  return `入口看板：${entranceArtwork[entranceSlide].title}，點選換圖`;
+}
 function entranceArtworkView(){
-  return `<section class="intro classic entranceArtwork" aria-label="入口看板輪播">
-    <div class="entranceArtworkStage">${entranceArtwork.map((art,i)=>`<img data-entrance-image="${i}" src="${art.src}" alt="${art.alt}" width="${art.width}" height="${art.height}" ${i===entranceSlide?'':'hidden'}>`).join('')}</div>
-    <div class="entranceArtworkCaption">${entranceArtwork.map((art,i)=>`<span data-entrance-caption="${i}" ${i===entranceSlide?'':'hidden'}>${art.caption}</span>`).join('')}</div>
-    <div class="entranceArtworkControls">
-      ${entranceArtwork.map((art,i)=>`<button class="secondary small" type="button" data-entrance-slide="${i}" aria-label="顯示${art.title}看板" aria-pressed="${i===entranceSlide}">${i+1}</button>`).join('')}
-      <button class="secondary small" type="button" id="entrancePlayback">${entrancePaused?'播放':'暫停'}</button>
-    </div>
-  </section>`;
-}
-function showEntranceSlide(index){
-  entranceSlide = index;
-  $$('[data-entrance-image]').forEach(image=>{image.hidden=Number(image.dataset.entranceImage)!==index;});
-  $$('[data-entrance-caption]').forEach(caption=>{caption.hidden=Number(caption.dataset.entranceCaption)!==index;});
-  $$('[data-entrance-slide]').forEach(button=>button.setAttribute('aria-pressed',String(Number(button.dataset.entranceSlide)===index)));
-}
-function scheduleEntranceArtwork(){
-  clearTimeout(entranceTimer);
-  if(state.screen!=='home'||state.modal||state.loading||document.hidden||entrancePaused) return;
-  entranceTimer=setTimeout(()=>{
-    showEntranceSlide((entranceSlide+1)%entranceArtwork.length);
-    scheduleEntranceArtwork();
-  },6500);
+  return `<button class="intro classic entranceArtwork" type="button" id="entranceArtwork" aria-label="${entranceArtworkLabel()}">
+    <span class="entranceArtworkStage">${entranceArtwork.map((art,i)=>`<img data-entrance-image="${i}" src="${art.src}" alt="${art.alt}" width="${art.width}" height="${art.height}" ${i===entranceSlide?'':'hidden'}>`).join('')}</span>
+    <span class="entranceArtworkCaption">${entranceArtwork[entranceSlide].caption}</span>
+  </button>`;
 }
 function bindEntranceArtwork(){
-  const playback=$('#entrancePlayback');
-  if(playback){
-    const updatePlayback=()=>{
-      playback.textContent=entrancePaused?'播放':'暫停';
-      scheduleEntranceArtwork();
-    };
-    playback.onclick=()=>{entrancePaused=!entrancePaused;updatePlayback();};
-    $$('[data-entrance-slide]').forEach(button=>button.onclick=()=>{
-      entrancePaused=true;
-      showEntranceSlide(Number(button.dataset.entranceSlide));
-      updatePlayback();
-    });
-  }
-  scheduleEntranceArtwork();
+  const tile=$('#entranceArtwork');
+  if(!tile) return;
+  tile.onclick=()=>{
+    entranceSlide=randomEntranceSlide(entranceSlide);
+    tile.querySelectorAll('[data-entrance-image]').forEach((image,i)=>{image.hidden=i!==entranceSlide;});
+    tile.querySelector('.entranceArtworkCaption').textContent=entranceArtwork[entranceSlide].caption;
+    tile.setAttribute('aria-label',entranceArtworkLabel());
+  };
 }
-document.addEventListener('visibilitychange',scheduleEntranceArtwork);
 
 const views = {
   home(){ const last=localStorage.getItem(LAST_ROOM_KEY)||''; return `<div class="hero"><div class="brand">ScoreZero 撲克記分板</div><div class="version">本次版本: ${VERSION}</div></div><div class="homeButtons"><button data-act="createSetup">建立房間</button><button class="secondary" data-act="joinSetup">加入房間</button>${last?`<button class="secondary wide" data-act="returnRoom">返回房間 ${esc(last)}</button>`:''}<button class="secondary wide" data-act="installApp">📲 加入手機主畫面</button></div>${entranceArtworkView()}`; },

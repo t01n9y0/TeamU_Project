@@ -169,37 +169,39 @@ body:has(.niuOverlay) .toast { z-index: 55; }
 }
 
 .entranceArtwork {
+  display: block;
+  width: 100%;
+  padding-inline: 6px;
+  color: var(--text);
   text-align: center;
+  touch-action: manipulation;
 }
 .entranceArtworkStage {
-  width: min(100%, 384px);
-  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  width: min(100%, 552px);
+  aspect-ratio: 768 / 541;
   margin: 0 auto;
 }
 .entranceArtworkStage img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
+}
+.entranceArtworkStage img[data-entrance-image="0"] {
+  /* Keep the square portrait at 384px when the wide portrait reaches 552px. */
+  width: 69.5652%;
 }
 .entranceArtwork [hidden] {
   display: none;
 }
 .entranceArtworkCaption {
+  display: block;
   min-height: 1.5em;
-  margin-block: 6px;
+  margin-top: 6px;
   font-weight: 800;
 }
-.entranceArtworkControls {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-}
-.entranceArtworkControls button {
-  min-width: 36px;
-  min-height: 36px;
-}
-.entranceArtworkControls button[aria-pressed="true"] {
+.entranceArtwork:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  outline-offset: 3px;
 }
